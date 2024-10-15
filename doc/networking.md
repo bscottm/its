@@ -71,7 +71,7 @@ ITS' current network connections and socket status. If you see 'Ack SYN' for a
 `telnet` or `supdup` connection that doesn't change, it's most likely the ITS
 IP network mask that is the problem.
 
-Here's why: `IPKSNI` is the routine in [`SYSTEM;INET`](src/system/inet.139)
+Here's why: `IPKSNI` is the routine in [`SYSTEM;INET`](../src/system/inet.139)
 that figures out whether to invoke `IPKSNA` to send an IP packet, `IPKSNC` for
 a CHAOSNET packet or do a next-hop gateway lookup. The pseudo-C code for
 `IPKSNI` looks like:
@@ -115,7 +115,7 @@ network mask will always match (`x & 0 == 0`).
 What to do:
 
 - Edit the `conf/network` file and change `NETMASK` to `255,255,0,0` and
-  rebuild ITS. This assumes that the IMP's IP address starts with "192.168",
+  rebuild ITS. This assumes that the IMP's IP address starts with 192.168,
   the same as ITS' default IP address, 192.168.0.100.
 
 - Edit `SYSTEM;CONFIG` and edit the `IPMUS3` and `NM%IMP` options for your
@@ -127,7 +127,7 @@ Note: IANA, which manages IP address allocation, has dedicated 192.168.0.0/16
 to private networks (i.e., only the top 16 bits of the 192.168.0.0 network are
 signficant.) This is why you can use a 255.255.0.0 network mask with the
 Linux TAP interface to communicate with the "Outside World" when your home
-network's addresses start with 192.168.50.x.
+network's addresses start with 192.168.50 (common ASUS router home network.)
 
 ## 10-net: The "10" network
 
@@ -143,7 +143,7 @@ ITS IP address.
 
 _Editing `SYSTEM;CONFIG` on a running ITS system_: Unless you are running the
 current ITS on a current version of KLH10 (see [below](#KLH10)), you need to
-[rebuild ITS](NITS.md) to change the machine's IP address (`IMPMUS3`) and
+(rebuild ITS)[NITS.md] to change the machine's IP address (`IMPMUS3`) and
 network mask (`NM%IMP`). Be sure to change these values in the appropriate
 configuration section -- `MCOND KL,[` for PDP-10 KL emulators and `MCOND KA,[`
 for PDP-10 KA emulators.
