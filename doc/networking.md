@@ -1,6 +1,6 @@
 # TCP/IP
 
-Currently, networking is only supported under the KLH10 and SIMH KA10
+Currently, networking is only supported under the KLH10, SIMH KA10
 and KL10 emulators. The SIMH KS10 does not have the necessary
 support. As of this release, only the ITS monitor, host table tools,
 and binary host table are installed.
@@ -11,15 +11,148 @@ Additionally, both an FTP server and client are included.
 SMTP mail inbound and outbound is included,
 as well as local mail delivery.
 
-## IP address
-Unless you are running the current ITS on a current version of KLH10 (see [below](#KLH10)),
-you need to [rebuild ITS](NITS.md) to change the machine's IP address.
+## How ITS networking works
+
+The PDP-10 does not have Ethernet hardware: it sends and receives IP protocol
+packets via an Internet Message Processor (IMP). The IMP functions similarly to
+a modern Network Address Translator (NAT) router in common use today. The IMP
+translates the received packet's destination address to ITS' "ARPA" interface
+address, and translates the source address for outbound packets to the IMP's IP
+address:
+
+```
+  +--------+     +-------+     +-----------+
+  | PDP-10 |     |       |     | Outside   |
+  |  ITS   |<--->|  IMP  |<--->| World     |<--->
+  |        |     |       |     | (Gateway) |
+  +--------+     +-------+     +-----------+
+  src: hostIP    src: impIP
+  -------------> -------------------------->
+  dst: destIP    dst: destIP
+
+  src: srcIP     src: srcIP
+  <------------- <--------------------------
+  dst: hostIP    dst: impIP
+```
+
+`srcIP` and `destIP` are the "Outside World" source and destination IP
+addresses of the entity communicating with ITS, such as a `telnet` or `supdup`
+client. The SIMH script to configure the IMP configures the `hostIP` for ITS
+and the `impIP` for the IMP as follows:
+
+```
+set imp enabled
+set imp mac=e2:6c:84:1d:34:a3
+set imp host=192.168.1.100        # hostIP, hardwired in ITS' SYSTEM;CONFIG
+set imp ip=192.168.2.4/24         # impIP and CIDR network mask (see note.)
+```
+
+Note: If the `impIP` address is not set, the IMP uses DHCP to acquire an IP
+address.
+
+## Network masks: Where Packets Go (IPKSNI)
+
+ITS supports two types of networking: IP and CHAOSNET. These network options
+are defined in the `SYSTEM;CONFIG` file on a per-machine basis (`MCOND KL,[`
+for the PDP-10 KL emulators and `MCOND KA,[` for the PDP-10 KA emulators).
+
+- `DEFOPT IMPMUS3==<IPADDR ...>` sets ITS's IP address, which the ITS build script
+  configures via the `conf/network` parameters.
+
+- `DEFOPT NM%IMP==<IPADDR ...>` sets ITS' IP network mask. 
+
+The combination of IP address and network mask determines which function
+processes the outbound packets: `IPKSNA` for IP packets and `IPKSNC` for
+CHAOSNET packets.
+
+__If ITS doesn't seem to respond to `telnet` or a `supdup` client, it is most
+likely an overly strict network mask!__ The `:PEEK 1A` command will show you
+ITS' current network connections and socket status. If you see 'Ack SYN' for a
+`telnet` or `supdup` connection that doesn't change, it's most likely the ITS
+IP network mask that is the problem.
+
+Here's why: `IPKSNI` is the routine in [`SYSTEM;INET`](src/system/inet.139)
+that figures out whether to invoke `IPKSNA` to send an IP packet, `IPKSNC` for
+a CHAOSNET packet or do a next-hop gateway lookup. The pseudo-C code for
+`IPKSNI` looks like:
+
+```
+/* Network mask table: */
+pdp10_word NIFIPM[2] = { NM%IMP, NM%CHA };
+/* Masked network IP address, e.g., 192.168.0.100/24 -> 192.168.0.0.
+   These values are precomputed when ITS is compiled. */
+pdp10_word NIFIPN[2] = { IMPMUS3 & NM%IMP, IMPMUS4 & NM%CHA };
+/* Output routiners */
+pdp10_word NIFIPO[2] = { IPKSNA, IPKSNC };
+
+void IPKSNI(ip_packet *pkt)
+{
+  /* First look at the NIFIPN table before doing a gateway
+     lookup (unrolled assembler loop): */
+  if (pkt->ip_dst & NIFIPM[0]) == NIFIPN[0]) {
+      /* "ARPA" (aka IP), invokes IPKSNA */
+      (*NIFIPO[0])(pkt);
+  }
+  if (pkt->ip_dst & NIFIPM[1] == NIFIPN[1]) {
+      /* CHAOSNET, invokes IPKSNC */
+      (*NIFIPO[1])(pkt);
+  }
+
+  /* Otherwise, look at the gateway table for the next-hop. */
+  ...
+}
+```
+
+For example, if ITS' IP address is 192.168.0.100 (the default for KL) with a
+network mask 255.255.255.248 (also the default for KL), and the IMP's IP
+address is 192.168.50.64, `IPKSNI` will not match the IMP's masked network IP
+address, it will not invoke `IPKSNA` and continue with matching the CHAOSNET
+network and attempt a gateway lookup if the CHAOSNET network doesn't match.
+
+Also, if a network mask is 0 (zero), e.g., `NM%CHA` == 0, then the particular
+network mask will always match (`x & 0 == 0`).
+
+What to do:
+
+- Edit the `conf/network` file and change `NETMASK` to `255,255,0,0` and
+  rebuild ITS. This assumes that the IMP's IP address starts with "192.168",
+  the same as ITS' default IP address, 192.168.0.100.
+
+- Edit `SYSTEM;CONFIG` and edit the `IPMUS3` and `NM%IMP` options for your
+  emulator (PDP-10 KL configuration starts at the line containing `MCOND KL,[`,
+  the PDP-10 KA's configuration starts with `MCOND KA,[`). Then recompile ITS
+  according to the (rebuild ITS)[doc/NITS.md] instructions.
+
+Note: IANA, which manages IP address allocation, has dedicated 192.168.0.0/16
+to private networks (i.e., only the top 16 bits of the 192.168.0.0 network are
+signficant.) This is why you can use a 255.255.0.0 network mask with the
+Linux TAP interface to communicate with the "Outside World" when your home
+network's addresses start with 192.168.50.x.
+
+## 10-net: The "10" network
+
+__Do Not Use__ 10-net addresses, e.g., 10.0.1.1, for either an ITS or IMP
+address. 10-net addresses have a special meaning to ITS and the IMP.
+
+## Changing ITS' IP address
+
+_First time ITS build from the Github repository_: Edit the `conf/network` file
+before you `make EMULATOR=<emu>`. Adjust the `IP`, `GW`  and `NETMASK` values
+(remember to use commas, not periods, in the `NETMASK` value!!!). `IP` is the
+ITS IP address.
+
+_Editing `SYSTEM;CONFIG` on a running ITS system_: Unless you are running the
+current ITS on a current version of KLH10 (see [below](#KLH10)), you need to
+[rebuild ITS](NITS.md) to change the machine's IP address (`IMPMUS3`) and
+network mask (`NM%IMP`). Be sure to change these values in the appropriate
+configuration section -- `MCOND KL,[` for PDP-10 KL emulators and `MCOND KA,[`
+for PDP-10 KA emulators.
 
 ### SIMH KA10 / KL10
 To get the `pdp10-ka` online with reasonably low effort, use the included SIMH NAT interface via DHCP.
 PDP10-KL instructions are in the making and while they should be the same as for KA they are not tested completely yet.
 
-#### Using the host's TAP interface
+#### Using the Linux TAP interface
 This enables networking with Network Address Translation (NAT) where the SIMH network adapter gets an IP address from a on network DHCP server. If you are running multiple SIMH instances with diffrerent networking requirements make sure to look at **Configuring networking in KA/KL with static IP assignment**.
 Depending on your host you will need to create a 
 - TAP network interface
