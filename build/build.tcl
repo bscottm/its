@@ -140,10 +140,10 @@ proc build_macsyma_portion {} {
 	    type "(quit)"
 	}
     }
-    set timeout 100
+    set timeout 600
 }
 
-set timeout 100
+set timeout 600
 proc setup_timeout {} {
     # Don't do this until after you've called "spawn", otherwise it'll cause a
     # read from stdin which will return EOF if stdin isn't a tty.
