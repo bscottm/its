@@ -124,12 +124,16 @@ type "\033p"
 respond "I'm done anyway." "<FILE-COMPILE \"batchq >\" \"batchq nbin\">\033"
 respond "Job ECOMP wants the TTY" "\033p"
 respond "I'm done anyway." "<FILE-COMPILE \"batchn >\" \"batchn nbin\">\033"
-expect -timeout 600 "Job ECOMP wants the TTY"
-type "\033p"
-respond "I'm done anyway." "<QUIT>\033"
-expect ":KILL"
+expect {
+  -timeout 600 
+  "Job ECOMP" {
+    expect {
+      "finished" { type ":KILL\r"; type ":mud55\r" }
+      "wants the TTY" { type "\033p"; respond "I'm done anyway." "<QUIT>\033"; expect ":KILL"; respond "*" ":mud55\r" }
+    }
+  }
+}
 
-respond "*" ":mud55\r"
 respond "LISTENING-AT-LEVEL 1 PROCESS 1" "<SNAME \".batch\">\033"
 respond "\".batch\"" "<FLOAD \"batchn maker\">\033"
 respond "\"DONE\"" "<SAVER T>\033"
