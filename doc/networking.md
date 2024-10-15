@@ -50,7 +50,7 @@ set imp ip=192.168.2.4/24         # impIP and CIDR network mask (see note.)
 Note: If the `impIP` address is not set, the IMP uses DHCP to acquire an IP
 address.
 
-## Network masks: Where Packets Go (IPKSNI)
+### Network masks: Where Packets Go (IPKSNI)
 
 ITS supports two types of networking: IP and CHAOSNET. These network options
 are defined in the `SYSTEM;CONFIG` file on a per-machine basis (`MCOND KL,[`
@@ -129,21 +129,21 @@ signficant.) This is why you can use a 255.255.0.0 network mask with the
 Linux TAP interface to communicate with the "Outside World" when your home
 network's addresses start with 192.168.50 (common ASUS router home network.)
 
-## 10-net: The "10" network
+### 10-net: The "10" network
 
 __Do Not Use__ 10-net addresses, e.g., 10.0.1.1, for either an ITS or IMP
 address. 10-net addresses have a special meaning to ITS and the IMP.
 
 ## Changing ITS' IP address
 
-_First time ITS build from the Github repository_: Edit the `conf/network` file
+_First time ITS build from the Github repository_: Edit the [`conf/network`](../conf/network) file
 before you `make EMULATOR=<emu>`. Adjust the `IP`, `GW`  and `NETMASK` values
 (remember to use commas, not periods, in the `NETMASK` value!!!). `IP` is the
 ITS IP address.
 
 _Editing `SYSTEM;CONFIG` on a running ITS system_: Unless you are running the
 current ITS on a current version of KLH10 (see [below](#KLH10)), you need to
-(rebuild ITS)[NITS.md] to change the machine's IP address (`IMPMUS3`) and
+[rebuild ITS](NITS.md) to change the machine's IP address (`IMPMUS3`) and
 network mask (`NM%IMP`). Be sure to change these values in the appropriate
 configuration section -- `MCOND KL,[` for PDP-10 KL emulators and `MCOND KA,[`
 for PDP-10 KA emulators.
