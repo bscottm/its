@@ -12,7 +12,9 @@
 	url = https://github.com/PDP-10/klh10
 [submodule "tools/simh"]
 	path = tools/simh
-	url = https://github.com/open-simh/simh
+        # url = https://github.com/open-simh/simh
+        url = https://github.com/bscottm/open-simh
+        branch = libslirp-dev
 [submodule "tools/supdup"]
 	path = tools/supdup
 	url = https://github.com/PDP-10/supdup
