@@ -1,6 +1,6 @@
 # Network configuration for ITS.  Note: for now, the two-letter ITS
 # name is hardcoded to DB, which is short for DistriBution.
-HOSTNAME=DB-ITS.EXAMPLE.COM
-IP=192.168.1.100
-GW=192.168.0.45
-NETMASK=255,255,255,248
+HOSTNAME=mit-its.ourdoodlehouse.org
+IP=192.168.1.101
+GW=192.168.50.1
+NETMASK=255,255,0,0
